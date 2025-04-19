@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartPark Pro | AI-Powered Parking Solution</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --accent: #4cc9f0;
+            --ev-spot: #2ecc71;
+            --occupied: #e74c3c;
+            --available: #2ecc71;
+            --dark: #1a1a2e;
+            --light: #f8f9fa;
+        }
+        
+        * {
+            box-sizing: border-box;
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Map Section - Now with 3D perspective */
+        .map-container {
+            flex: 3;
+            position: relative;
+            background: linear-gradient(135deg, #e0e5ec 0%, #f0f2f5 100%);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.1);
+        }
+        
+        #parking-lot {
+            width: 90%;
+            height: 90%;
+            background-color: #f8f9fa;
+            position: relative;
+            border-radius: 12px;
+            box-shadow: 
+                0 10px 20px rgba(0,0,0,0.1),
+                0 0 0 2px rgba(255,255,255,0.8);
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            overflow: hidden;
+        }
+        
+        .road {
+            position: absolute;
+            background-color: #34495e;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        #horizontal-road {
+            width: 100%;
+            height: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        #vertical-road {
+            width: 40px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .parking-spot {
+            position: absolute;
+            width: 50px;
+            height: 80px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            z-index: 10;
+            border: 2px solid rgba(255,255,255,0.8);
+        }
+        
+        .parking-spot:hover {
+            transform: scale(1.1) translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            z-index: 20;
+        }
+        
+        .available {
+            background-color: var(--available);
+            background: linear-gradient(135deg, var(--available) 0%, #27ae60 100%);
+        }
+        
+        .occupied {
+            background-color: var(--occupied);
+            background: linear-gradient(135deg, var(--occupied) 0%, #c0392b 100%);
+        }
+        
+        .ev-spot {
+            background-color: var(--ev-spot);
+            background: linear-gradient(135deg, var(--ev-spot) 0%, #16a085 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ev-spot::after {
+            content: "⚡";
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            font-size: 12px;
+        }
+        
+        .reserved {
+    animation: pulse 2s infinite;
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 15px var(--accent);
+}   
+        
+        .reserved::after {
+            content: "YOUR SPOT";
+            position: absolute;
+            bottom: -20px;
+            width: 100%;
+            text-align: center;
+            font-size: 9px;
+            color: var(--secondary);
+            font-weight: bold;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0.7); }
+            70% { box-shadow: 0 0 0 12px rgba(76, 201, 240, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0); }
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px) scale(1.1); }
+            50% { transform: translateY(-8px) scale(1.1); }
+            100% { transform: translateY(0px) scale(1.1); }
+        }
+        
+        /* Controls Section - Modern Card UI */
+        .controls {
+            flex: 1;
+            padding: 25px;
+            background-color: white;
+            overflow-y: auto;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        
+        .logo i {
+            margin-right: 10px;
+            color: var(--accent);
+        }
+        
+        .tagline {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+            border-radius: 12px;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .section:hover {
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        h1, h2, h3 {
+            color: var(--secondary);
+            margin-top: 0;
+        }
+        
+        h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        h2 i {
+            margin-right: 10px;
+            color: var(--primary);
+        }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px 0;
+            width: 100%;
+            transition: all 0.3s;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 8px rgba(67, 97, 238, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        button i {
+            margin-right: 8px;
+        }
+        
+        button:hover {
+            background-color: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(67, 97, 238, 0.3);
+        }
+        
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #34495e;
+            font-size: 14px;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+            background-color: #f8f9fa;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.2);
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            padding: 0;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        /* AR View - More immersive */
+        .ar-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            backdrop-filter: blur(5px);
+        }
+        
+        .ar-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        .ar-nav {
+            position: relative;
+            width: 90%;
+            height: 65%;
+            background-color: rgba(30,30,40,0.8);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.1);
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .ar-path {
+            position: absolute;
+            width: 5px;
+            background: linear-gradient(to bottom, var(--accent), transparent);
+            transform-origin: top left;
+            z-index: 10;
+        }
+        
+        .ar-marker {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            z-index: 20;
+            box-shadow: 0 0 20px var(--accent);
+            animation: pulse 1.5s infinite;
+        }
+        
+        .ar-instructions-container {
+            width: 90%;
+            background-color: rgba(30,30,40,0.8);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        #ar-instructions {
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        
+        .distance {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        
+        /* Prediction Chart - Modern styling */
+        .prediction-container {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            margin-top: 20px;
+        }
+        
+        /* Blockchain Animation - More realistic */
+        .blockchain-animation {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            height: 120px;
+            overflow-y: auto;
+            margin-top: 10px;
+            border: 1px solid #e0e0e0;
+            background-color: #1a1a2e;
+            color: #4cc9f0;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        
+        .transaction {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid var(--accent);
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        
+        .success {
+            background-color: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+        }
+        
+        .pending {
+            background-color: rgba(241, 196, 15, 0.2);
+            color: #f1c40f;
+        }
+        
+        .mining {
+            background-color: rgba(155, 89, 182, 0.2);
+            color: #9b59b6;
+        }
+        
+        /* Booking Confirmation - Modern card */
+        .booking-confirmation {
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-top: 15px;
+        }
+        
+        .confirmation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .confirmation-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--secondary);
+        }
+        
+        .confirmation-id {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .confirmation-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .detail-item {
+            font-size: 14px;
+        }
+        
+        .detail-label {
+            font-weight: 500;
+            color: #7f8c8d;
+            margin-bottom: 3px;
+        }
+        
+        .detail-value {
+            font-weight: 600;
+            color: #34495e;
+        }
+        
+        .qr-code {
+            margin: 15px auto;
+            text-align: center;
+            padding: 10px;
+            background-color: white;
+            border-radius: 8px;
+            display: inline-block;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* Spot Info - Modern card */
+        .spot-info {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .spot-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .spot-id {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--secondary);
+        }
+        
+        .spot-type {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background-color: var(--accent);
+            color: white;
+            font-weight: 500;
+        }
+        
+        .spot-detail {
+            display: flex;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .spot-detail i {
+            width: 20px;
+            color: #7f8c8d;
+            margin-right: 8px;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .map-container {
+                height: 50vh;
+            }
+            
+            .controls {
+                height: 50vh;
+            }
+        }
+        
+        /* Loading animation */
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 5px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Map Section -->
+        <div class="map-container">
+            <div id="parking-lot">
+                <div class="road" id="horizontal-road"></div>
+                <div class="road" id="vertical-road"></div>
+                <!-- Parking spots will be added dynamically -->
+            </div>
+        </div>
+        
+        <!-- Controls Section -->
+        <div class="controls">
+            <div class="header">
+                <div class="logo">
+                    <i class="fas fa-car-alt"></i> SmartPark Pro
+                </div>
+                <div class="tagline">
+                    AI-Powered Parking with IoT & Blockchain
+                </div>
+            </div>
+            
+            <!-- User Profile Section -->
+            <div class="section">
+                <h2><i class="fas fa-user-circle"></i> User Profile</h2>
+                <div class="form-group">
+                    <label for="user-type">Vehicle Type</label>
+                    <select id="user-type">
+                        <option value="regular">Regular Vehicle</option>
+                        <option value="ev">Electric Vehicle (EV)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="battery-group" style="display: none;">
+                    <label for="battery-level">EV Battery Level: <span id="battery-value">50%</span></label>
+                    <input type="range" id="battery-level" min="0" max="100" value="50">
+                </div>
+                <button id="simulate-ai">
+                    <i class="fas fa-brain"></i> Simulate AI Prediction
+                </button>
+            </div>
+            
+            <!-- Parking Spot Info -->
+            <div class="section" id="spot-info" style="display: none;">
+                <h2><i class="fas fa-map-marker-alt"></i> Selected Spot</h2>
+                <div class="spot-info" id="spot-details"></div>
+                <button id="book-spot">
+                    <i class="fas fa-lock"></i> Book This Spot
+                </button>
+            </div>
+            
+            <!-- AI Prediction Section -->
+            <div class="section" id="prediction-section" style="display: none;">
+                <h2><i class="fas fa-chart-line"></i> AI Availability Prediction</h2>
+                <div class="prediction-container">
+                    <canvas class="prediction-chart" id="prediction-chart"></canvas>
+                </div>
+                <p id="prediction-text" style="font-size: 14px; color: #34495e; margin-top: 10px;"></p>
+            </div>
+            
+            <!-- Blockchain Booking -->
+            <div class="section" id="blockchain-section" style="display: none;">
+                <h2><i class="fas fa-link"></i> Blockchain Booking</h2>
+                <div class="blockchain-animation" id="blockchain-animation">
+                    <div>Initializing decentralized network...</div>
+                </div>
+                <div id="booking-status"></div>
+            </div>
+            
+            <!-- AR Navigation -->
+            <div class="section" id="ar-section" style="display: none;">
+                <h2><i class="fas fa-directions"></i> AR Navigation</h2>
+                <button id="start-ar">
+                    <i class="fas fa-street-view"></i> Start AR Navigation
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- AR View (hidden by default) -->
+    <div class="ar-view" id="ar-view">
+        <div class="ar-header">
+            <div style="font-size: 18px; font-weight: 600;">
+                <i class="fas fa-map-marked-alt"></i> SmartPark Navigation
+            </div>
+            <div id="ar-distance" class="distance">150m</div>
+        </div>
+        
+        <div class="ar-nav">
+            <div class="ar-path" id="ar-path"></div>
+            <div class="ar-marker" id="ar-marker">
+                <i class="fas fa-car"></i>
+            </div>
+        </div>
+        
+        <div class="ar-instructions-container">
+            <p id="ar-instructions">Head straight towards the parking garage entrance</p>
+            <button id="exit-ar" style="width: auto; padding: 8px 20px;">
+                <i class="fas fa-times"></i> Exit AR
+            </button>
+        </div>
+    </div>
+    
+    <!-- Chart.js for prediction visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+        // Enhanced parking spots data with realistic positions
+        const parkingSpots = [
+            { id: 'A1', row: 0, col: 0, type: 'regular', available: true, x: 15, y: 15 },
+            { id: 'A2', row: 0, col: 1, type: 'regular', available: false, x: 15, y: 80 },
+            { id: 'A3', row: 0, col: 2, type: 'regular', available: true, x: 15, y: 145 },
+            { id: 'A4', row: 0, col: 3, type: 'regular', available: true, x: 15, y: 210 },
+            { id: 'B1', row: 1, col: 0, type: 'ev', available: true, x: 80, y: 15 },
+            { id: 'B2', row: 1, col: 1, type: 'ev', available: true, x: 80, y: 80 },
+            { id: 'B3', row: 1, col: 2, type: 'ev', available: false, x: 80, y: 145 },
+            { id: 'B4', row: 1, col: 3, type: 'regular', available: true, x: 80, y: 210 },
+            { id: 'C1', row: 2, col: 0, type: 'regular', available: true, x: 145, y: 15 },
+            { id: 'C2', row: 2, col: 1, type: 'regular', available: false, x: 145, y: 80 },
+            { id: 'C3', row: 2, col: 2, type: 'regular', available: true, x: 145, y: 145 },
+            { id: 'C4', row: 2, col: 3, type: 'regular', available: false, x: 145, y: 210 }
+        ];
+
+        // Current selection and state
+        let selectedSpot = null;
+        let predictionChart = null;
+        let isEV = false;
+        let batteryLevel = 50;
+        let bookingId = null;
+        let arInterval = null;
+        let distanceRemaining = 150;
+
+        // Initialize the parking lot with realistic layout
+        function initParkingLot() {
+            const lot = document.getElementById('parking-lot');
+            const lotWidth = lot.clientWidth;
+            const lotHeight = lot.clientHeight;
+            
+            // Clear existing spots
+            lot.innerHTML = `
+                <div class="road" id="horizontal-road"></div>
+                <div class="road" id="vertical-road"></div>
+            `;
+            
+            // Position roads
+            document.getElementById('horizontal-road').style.height = `${lotHeight * 0.08}px`;
+            document.getElementById('vertical-road').style.width = `${lotWidth * 0.08}px`;
+            
+            // Calculate parking spot positions
+            const spotWidth = 50;
+            const spotHeight = 80;
+            const horizontalSpacing = (lotWidth - (4 * spotWidth)) / 5;
+            const verticalSpacing = (lotHeight - (3 * spotHeight)) / 4;
+            
+            parkingSpots.forEach(spot => {
+                const spotElement = document.createElement('div');
+                spotElement.className = `parking-spot ${spot.available ? 'available' : 'occupied'} ${spot.type === 'ev' ? 'ev-spot' : ''}`;
+                spotElement.id = `spot-${spot.id}`;
+                
+                // Position spots in a grid around the roads
+                const left = horizontalSpacing + (spot.col * (spotWidth + horizontalSpacing));
+                const top = verticalSpacing + (spot.row * (spotHeight + verticalSpacing));
+                
+                spotElement.style.width = `${spotWidth}px`;
+                spotElement.style.height = `${spotHeight}px`;
+                spotElement.style.left = `${left}px`;
+                spotElement.style.top = `${top}px`;
+                spotElement.textContent = spot.id;
+                
+                // Add vehicle icon if occupied
+                if (!spot.available) {
+                    const carIcon = document.createElement('i');
+                    carIcon.className = 'fas fa-car';
+                    carIcon.style.position = 'absolute';
+                    carIcon.style.bottom = '5px';
+                    spotElement.appendChild(carIcon);
+                }
+                
+                spotElement.addEventListener('click', () => selectSpot(spot));
+                
+                lot.appendChild(spotElement);
+            });
+        }
+
+        // Select a parking spot with animation
+        function selectSpot(spot) {
+            // Deselect previous spot
+            if (selectedSpot) {
+                const prevSpotElement = document.getElementById(`spot-${selectedSpot.id}`);
+                prevSpotElement.className = `parking-spot ${selectedSpot.available ? 'available' : 'occupied'} ${selectedSpot.type === 'ev' ? 'ev-spot' : ''}`;
+                prevSpotElement.style.transform = '';
+                prevSpotElement.style.boxShadow = '';
+            }
+            
+            selectedSpot = spot;
+            const spotElement = document.getElementById(`spot-${spot.id}`);
+            spotElement.classList.add('reserved');
+            
+            // Show spot info with elegant animation
+            document.getElementById('spot-info').style.display = 'block';
+            document.getElementById('spot-details').innerHTML = `
+                <div class="spot-header">
+                    <div class="spot-id">${spot.id}</div>
+                    <div class="spot-type">${spot.type === 'ev' ? 'EV CHARGING' : 'REGULAR'}</div>
+                </div>
+                <div class="spot-detail">
+                    <i class="fas fa-map-pin"></i>
+                    <div>
+                        <div class="detail-label">Location</div>
+                        <div class="detail-value">${getRandomLocation()}</div>
+                    </div>
+                </div>
+                <div class="spot-detail">
+                    <i class="fas fa-bolt"></i>
+                    <div>
+                        <div class="detail-label">Status</div>
+                        <div class="detail-value">${spot.available ? 'Available' : 'Occupied'}</div>
+                    </div>
+                </div>
+                ${spot.type === 'ev' ? `
+                <div class="spot-detail">
+                    <i class="fas fa-charging-station"></i>
+                    <div>
+                        <div class="detail-label">Charger Type</div>
+                        <div class="detail-value">7.4 kW</div>
+                    </div>
+                </div>
+                ` : ''}
+            `;
+            
+            // Enable booking if available
+            document.getElementById('book-spot').disabled = !spot.available;
+            
+            // Hide other sections
+            document.getElementById('prediction-section').style.display = 'none';
+            document.getElementById('blockchain-section').style.display = 'none';
+            document.getElementById('ar-section').style.display = 'none';
+        }
+
+        // Get random nearby location for demo
+        function getRandomLocation() {
+            const locations = [
+                "North Parking Lot",
+                "Main Campus Garage",
+                "Shopping Plaza West",
+                "Downtown Parking Center",
+                "University Tech Park"
+            ];
+            return locations[Math.floor(Math.random() * locations.length)];
+        }
+
+        // Simulate AI prediction with realistic data
+        function simulateAIPrediction() {
+            if (!selectedSpot) {
+                showAlert('Please select a parking spot first');
+                return;
+            }
+            
+            document.getElementById('prediction-section').style.display = 'block';
+            
+            // Generate realistic prediction data based on time of day
+            const now = new Date();
+            const currentHour = now.getHours();
+            let baseAvailability;
+            
+            // More spots available in early morning, less during peak hours
+            if (currentHour >= 8 && currentHour <= 10) {
+                baseAvailability = selectedSpot.available ? 0.6 : 0.2; // Morning rush
+            } else if (currentHour >= 16 && currentHour <= 18) {
+                baseAvailability = selectedSpot.available ? 0.5 : 0.3; // Evening rush
+            } else {
+                baseAvailability = selectedSpot.available ? 0.8 : 0.4; // Off-peak
+            }
+            
+            // Generate data points with realistic trends
+            const hours = ['Now', '+15 min', '+30 min', '+45 min', '+1 hr'];
+            const availabilityData = hours.map((_, i) => {
+                // Add some randomness but maintain trend
+                let availability = baseAvailability;
+                
+                // More likely to become occupied over time if currently available
+                if (selectedSpot.available) {
+                    availability -= i * 0.1;
+                } else {
+                    availability += i * 0.1;
+                }
+                
+                // Add some randomness
+                availability += (Math.random() * 0.2 - 0.1);
+                
+                // Keep within bounds
+                return Math.max(0, Math.min(1, availability));
+            });
+            
+            // Create chart with professional styling
+            const ctx = document.getElementById('prediction-chart').getContext('2d');
+            
+            if (predictionChart) {
+                predictionChart.destroy();
+            }
+            
+            predictionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: hours,
+                    datasets: [{
+                        label: 'Availability Probability',
+                        data: availabilityData.map(val => val * 100),
+                        backgroundColor: availabilityData.map(val => 
+                            val > 0.7 ? 'rgba(46, 204, 113, 0.7)' : 
+                            val > 0.4 ? 'rgba(241, 196, 15, 0.7)' : 
+                            'rgba(231, 76, 60, 0.7)'),
+                        borderColor: availabilityData.map(val => 
+                            val > 0.7 ? 'rgba(39, 174, 96, 1)' : 
+                            val > 0.4 ? 'rgba(243, 156, 18, 1)' : 
+                            'rgba(192, 57, 43, 1)'),
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Probability (%)',
+                                color: '#7f8c8d'
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            },
+                            ticks: {
+                                color: '#7f8c8d'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time',
+                                color: '#7f8c8d'
+                            },
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#7f8c8d'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(26, 26, 46, 0.9)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#ffffff',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toFixed(1)}% chance of availability`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Generate intelligent prediction text
+            const avgAvailability = availabilityData.reduce((a, b) => a + b, 0) / availabilityData.length;
+            
+            let predictionText;
+            if (avgAvailability > 0.7) {
+                predictionText = "High likelihood this spot will remain available for the next hour.";
+            } else if (avgAvailability > 0.4) {
+                predictionText = "Moderate chance this spot will become occupied soon. Consider booking now.";
+            } else {
+                predictionText = "Low availability predicted. We recommend finding an alternative spot.";
+            }
+            
+            if (selectedSpot.type === 'ev') {
+                predictionText += " EV charging prioritized for vehicles with low battery.";
+            }
+            
+            document.getElementById('prediction-text').textContent = predictionText;
+        }
+
+        // Book the selected spot with realistic blockchain simulation
+        function bookSpot() {
+            if (!selectedSpot || !selectedSpot.available) {
+                showAlert('Please select an available parking spot first');
+                return;
+            }
+            
+            document.getElementById('blockchain-section').style.display = 'block';
+            const blockchainEl = document.getElementById('blockchain-animation');
+            const statusEl = document.getElementById('booking-status');
+            
+            // Generate realistic booking ID
+            bookingId = 'BK-' + Math.floor(1000 + Math.random() * 9000) + '-' + 
+                        String.fromCharCode(65 + Math.floor(Math.random() * 26)) + 
+                        String.fromCharCode(65 + Math.floor(Math.random() * 26));
+            
+            // Clear previous messages
+            blockchainEl.innerHTML = '<div>Connecting to decentralized network...</div>';
+            statusEl.innerHTML = '';
+            
+            // Simulate blockchain transaction with realistic timing
+            const messages = [
+                { text: 'Establishing secure connection...', delay: 800, status: '' },
+                { text: 'Validating user credentials...', delay: 1200, status: 'success', statusText: 'Verified' },
+                { text: 'Checking spot availability on blockchain...', delay: 1500, status: 'success', statusText: 'Available' },
+                { text: 'Generating smart contract for parking spot...', delay: 2000, status: '' },
+                { text: 'Processing payment (0.0025 ETH)...', delay: 1800, status: 'success', statusText: 'Confirmed' },
+                { text: 'Submitting transaction to blockchain...', delay: 2500, status: 'mining', statusText: 'Mining' },
+                { text: `Transaction confirmed! Block #${Math.floor(15000000 + Math.random() * 5000000)}`, delay: 3000, status: 'success', statusText: 'Confirmed' }
+            ];
+            
+            let delay = 0;
+            messages.forEach((msg, i) => {
+                setTimeout(() => {
+                    const statusSpan = msg.status ? 
+                        `<span class="status ${msg.status}">${msg.statusText}</span>` : '';
+                    blockchainEl.innerHTML += 
+                        `<div class="transaction">${msg.text} ${statusSpan}</div>`;
+                    blockchainEl.scrollTop = blockchainEl.scrollHeight;
+                    
+                    // On last message, show confirmation
+                    if (i === messages.length - 1) {
+                        completeBooking();
+                    }
+                }, delay);
+                delay += msg.delay;
+            });
+            
+            function completeBooking() {
+                // Update spot status
+                selectedSpot.available = false;
+                const spotElement = document.getElementById(`spot-${selectedSpot.id}`);
+                spotElement.className = 'parking-spot occupied';
+                
+                // Add car icon to show occupation
+                const carIcon = document.createElement('i');
+                carIcon.className = 'fas fa-car';
+                carIcon.style.position = 'absolute';
+                carIcon.style.bottom = '5px';
+                spotElement.appendChild(carIcon);
+                
+                // Show professional booking confirmation
+                statusEl.innerHTML = `
+                    <div class="booking-confirmation">
+                        <div class="confirmation-header">
+                            <div class="confirmation-title">
+                                <i class="fas fa-check-circle" style="color: #2ecc71;"></i> Booking Confirmed
+                            </div>
+                            <div class="confirmation-id">${bookingId}</div>
+                        </div>
+                        <div class="confirmation-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Spot ID</div>
+                                <div class="detail-value">${selectedSpot.id}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Location</div>
+                                <div class="detail-value">${getRandomLocation()}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Expires In</div>
+                                <div class="detail-value">30 minutes</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Vehicle</div>
+                                <div class="detail-value">${isEV ? 'EV (Charging)' : 'Regular'}</div>
+                            </div>
+                        </div>
+                        <div class="qr-code">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                                `SMARTPARK:${selectedSpot.id}:${bookingId}:${new Date().getTime()}`
+                            )}&margin=10" alt="QR Code">
+                            <div style="font-size: 12px; margin-top: 5px;">Scan at parking spot</div>
+                        </div>
+                    </div>
+                `;
+                
+                // Show AR navigation option
+                document.getElementById('ar-section').style.display = 'block';
+            }
+        }
+
+        // Start AR navigation with realistic simulation
+        function startARNavigation() {
+            document.getElementById('ar-view').style.display = 'flex';
+            distanceRemaining = 150;
+            updateDistance();
+            
+            // Simulate AR path with realistic layout
+            const path = document.getElementById('ar-path');
+            const marker = document.getElementById('ar-marker');
+            const instructionsEl = document.getElementById('ar-instructions');
+            
+            // Create a more realistic path with turns
+            path.style.width = '120px';
+            path.style.height = '8px';
+            path.style.transform = 'rotate(30deg)';
+            path.style.top = '20%';
+            path.style.left = '20%';
+            
+            // Position marker at end of first path segment
+            marker.style.top = 'calc(20% + 60px)';
+            marker.style.left = 'calc(20% + 104px)';
+            
+            // Update instructions realistically
+            const instructions = [
+                { text: "Head straight toward the parking garage", distance: 150 },
+                { text: "Turn right at the next intersection", distance: 100 },
+                { text: "Your parking spot is on the left", distance: 50 },
+                { text: "You have arrived at your parking spot", distance: 0 }
+            ];
+            
+            let currentInstruction = 0;
+            instructionsEl.textContent = instructions[currentInstruction].text;
+            
+            // Simulate movement
+            arInterval = setInterval(() => {
+                distanceRemaining -= 5;
+                if (distanceRemaining <= 0) {
+                    distanceRemaining = 0;
+                    clearInterval(arInterval);
+                }
+                
+                updateDistance();
+                
+                // Change instruction if we've completed most of this segment
+                if (distanceRemaining <= instructions[currentInstruction].distance - 50 && 
+                    currentInstruction < instructions.length - 1) {
+                    currentInstruction++;
+                    instructionsEl.textContent = instructions[currentInstruction].text;
+                    
+                    // Change path for demonstration
+                    if (currentInstruction === 1) {
+                        path.style.transform = 'rotate(-20deg)';
+                        path.style.width = '80px';
+                        marker.style.top = 'calc(20% + 60px + 27.4px)';
+                        marker.style.left = 'calc(20% + 104px - 75.2px)';
+                    } else if (currentInstruction === 2) {
+                        path.style.transform = 'rotate(10deg)';
+                        path.style.width = '50px';
+                        marker.style.top = 'calc(20% + 60px + 27.4px + 8.7px)';
+                        marker.style.left = 'calc(20% + 104px - 75.2px + 49.2px)';
+                    }
+                }
+            }, 300);
+        }
+        
+        function updateDistance() {
+            document.getElementById('ar-distance').textContent = `${distanceRemaining}m`;
+        }
+
+        // Exit AR view
+        function exitAR() {
+            clearInterval(arInterval);
+            document.getElementById('ar-view').style.display = 'none';
+        }
+
+        // Toggle EV battery level input
+        function toggleEVFields() {
+            const userType = document.getElementById('user-type').value;
+            isEV = userType === 'ev';
+            document.getElementById('battery-group').style.display = isEV ? 'block' : 'none';
+            
+            // Highlight EV spots if EV selected
+            if (isEV) {
+                parkingSpots.forEach(spot => {
+                    const spotElement = document.getElementById(`spot-${spot.id}`);
+                    if (spot.type === 'ev' && spot.available) {
+                        spotElement.style.transform = 'scale(1.1)';
+                        setTimeout(() => {
+                            spotElement.style.transform = 'scale(1)';
+                        }, 1000);
+                    }
+                });
+            }
+        }
+
+        // Update battery level display
+        function updateBatteryLevel() {
+            batteryLevel = document.getElementById('battery-level').value;
+            document.getElementById('battery-value').textContent = `${batteryLevel}%`;
+            
+            // If battery is low, prioritize EV spots
+            if (batteryLevel < 20) {
+                showAlert('Low battery detected! Prioritizing EV charging spots for you.', 'warning');
+                parkingSpots.forEach(spot => {
+                    const spotElement = document.getElementById(`spot-${spot.id}`);
+                    if (spot.type === 'ev' && spot.available) {
+                        spotElement.style.boxShadow = '0 0 15px #2ecc71';
+                    }
+                });
+            }
+        }
+        
+        // Show alert message
+        function showAlert(message, type = 'info') {
+            const alert = document.createElement('div');
+            alert.style.position = 'fixed';
+            alert.style.bottom = '20px';
+            alert.style.left = '50%';
+            alert.style.transform = 'translateX(-50%)';
+            alert.style.padding = '12px 20px';
+            alert.style.borderRadius = '8px';
+            alert.style.color = 'white';
+            alert.style.fontWeight = '500';
+            alert.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            alert.style.zIndex = '1000';
+            alert.style.display = 'flex';
+            alert.style.alignItems = 'center';
+            
+            if (type === 'warning') {
+                alert.style.backgroundColor = '#e67e22';
+            } else {
+                alert.style.backgroundColor = '#3498db';
+            }
+            
+            alert.innerHTML = `
+                <i class="fas fa-${type === 'warning' ? 'exclamation-triangle' : 'info-circle'}" 
+                   style="margin-right: 10px;"></i>
+                ${message}
+            `;
+            
+            document.body.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                alert.style.transition = 'opacity 0.5s';
+                setTimeout(() => {
+                    document.body.removeChild(alert);
+                }, 500);
+            }, 3000);
+        }
+
+        // Initialize the app
+        window.onload = function() {
+            initParkingLot();
+            
+            // Event listeners
+            document.getElementById('simulate-ai').addEventListener('click', simulateAIPrediction);
+            document.getElementById('book-spot').addEventListener('click', bookSpot);
+            document.getElementById('start-ar').addEventListener('click', startARNavigation);
+            document.getElementById('exit-ar').addEventListener('click', exitAR);
+            document.getElementById('user-type').addEventListener('change', toggleEVFields);
+            document.getElementById('battery-level').addEventListener('input', updateBatteryLevel);
+        };
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            initParkingLot();
+        });
+    </script>
+</body>
+</html>
